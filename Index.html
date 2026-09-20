@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AeroCast · Swiss Weather</title>
+    <title>weatherAEROCAST</title>
     <!-- Font: Poppins for a clean, modern Swiss look -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -52,7 +52,7 @@
             box-shadow: 0 40px 80px rgba(0, 0, 0, 0.8);
             display: grid;
             grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto auto auto auto;
+            grid-template-rows: auto auto auto auto auto auto;
             gap: 0;
         }
 
@@ -88,31 +88,50 @@
             color: #666666;
             display: flex;
             gap: 2rem;
+            align-items: center;
         }
 
-        .app-header .header-right .live-dot {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #4ADE80;
-            margin-right: 6px;
-            animation: pulse-dot 1.5s infinite;
+        /* ---------- TIMEZONE BAR (GRID ROW 2) ---------- */
+        .timezone-bar {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 0.85rem 0;
+            border-bottom: 1px solid #222222;
+            font-size: 0.7rem;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: #666666;
         }
 
-        @keyframes pulse-dot {
-            0%,
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-            50% {
-                opacity: 0.3;
-                transform: scale(0.7);
-            }
+        .timezone-bar .tz-label {
+            font-size: 0.6rem;
+            font-weight: 500;
+            letter-spacing: 1.5px;
+            color: #555555;
         }
 
-        /* ---------- STATUS BAR (GRID ROW 2) ---------- */
+        .timezone-bar .tz-value {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: #CCCCCC;
+            letter-spacing: 0.3px;
+            text-transform: none;
+            text-align: center;
+        }
+
+        .timezone-bar .tz-offset {
+            font-size: 0.65rem;
+            font-weight: 300;
+            color: #555555;
+            text-align: right;
+            letter-spacing: 0.3px;
+        }
+
+        /* ---------- STATUS BAR (GRID ROW 3) ---------- */
         .status-bar {
             grid-column: 1 / -1;
             display: flex;
@@ -184,7 +203,7 @@
             border-color: #FFFFFF;
         }
 
-        /* ---------- SEARCH (GRID ROW 3) ---------- */
+        /* ---------- SEARCH (GRID ROW 4) ---------- */
         .search-wrap {
             grid-column: 1 / -1;
             display: grid;
@@ -233,7 +252,7 @@
             background: #CCCCCC;
         }
 
-        /* ---------- MAIN WEATHER (GRID ROW 4) ---------- */
+        /* ---------- MAIN WEATHER (GRID ROW 5) ---------- */
         .weather-main {
             grid-column: 1 / -1;
             display: grid;
@@ -306,7 +325,7 @@
             margin-top: 0.25rem;
         }
 
-        /* ---------- STATS (GRID ROW 5) ---------- */
+        /* ---------- STATS (GRID ROW 6) ---------- */
         .stats-grid {
             grid-column: 1 / -1;
             display: grid;
@@ -350,7 +369,7 @@
             margin-left: 2px;
         }
 
-        /* ---------- FORECAST (GRID ROW 6) ---------- */
+        /* ---------- FORECAST (GRID ROW 7) ---------- */
         .forecast-section {
             grid-column: 1 / -1;
         }
@@ -478,6 +497,20 @@
             .forecast-day:last-child {
                 border-right: none;
             }
+
+            .timezone-bar {
+                grid-template-columns: 1fr;
+                gap: 0.25rem;
+                text-align: left;
+            }
+
+            .timezone-bar .tz-value {
+                text-align: left;
+            }
+
+            .timezone-bar .tz-offset {
+                text-align: left;
+            }
         }
 
         @media (max-width: 500px) {
@@ -527,6 +560,10 @@
             .search-wrap button {
                 padding: 1rem;
             }
+
+            .timezone-bar {
+                font-size: 0.6rem;
+            }
         }
     </style>
 </head>
@@ -538,11 +575,17 @@
     <div class="app-card" id="app">
         <!-- HEADER -->
         <div class="app-header">
-            <div class="logo">AeroCast<span>.ch</span></div>
+            <div class="logo">weatherAEROCAST<span>.ch</span></div>
             <div class="header-right">
-                <span><span class="live-dot"></span>Live</span>
-                <span>Swiss Grid · 2025</span>
+                <span id="headerDate">—</span>
             </div>
+        </div>
+
+        <!-- TIMEZONE BAR -->
+        <div class="timezone-bar">
+            <span class="tz-label">Your Timezone</span>
+            <span class="tz-value" id="timezoneValue">—</span>
+            <span class="tz-offset" id="timezoneOffset">—</span>
         </div>
 
         <!-- STATUS BAR -->
@@ -666,6 +709,9 @@
             const statusDot = document.getElementById('statusDot');
             const autoRefreshToggle = document.getElementById('autoRefreshToggle');
             const manualRefreshBtn = document.getElementById('manualRefreshBtn');
+            const timezoneValue = document.getElementById('timezoneValue');
+            const timezoneOffset = document.getElementById('timezoneOffset');
+            const headerDate = document.getElementById('headerDate');
 
             // ---------- STATE ----------
             let currentCity = 'Punxsutawney';
@@ -888,6 +934,34 @@
                 }
             }
 
+            // ---------- AUTO-DETECT USER TIMEZONE ----------
+            function updateUserTimezone() {
+                const now = new Date();
+                const offsetMinutes = -now.getTimezoneOffset();
+                const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
+                const offsetMins = Math.abs(offsetMinutes) % 60;
+                const sign = offsetMinutes >= 0 ? '+' : '-';
+                const offsetStr = `UTC${sign}${String(offsetHours).padStart(2, '0')}:${String(offsetMins).padStart(2, '0')}`;
+
+                const dateStr = now.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                const timeStr = now.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+
+                timezoneValue.textContent = `${dateStr} · ${timeStr}`;
+                timezoneOffset.textContent = offsetStr;
+                headerDate.textContent = offsetStr;
+            }
+
+            // ---------- FORECAST ----------
             function renderForecast(forecastData) {
                 const dailyMap = new Map();
                 const today = new Date().setHours(0, 0, 0, 0);
@@ -1032,6 +1106,9 @@
 
             // ---------- INIT ----------
             window.addEventListener('load', () => {
+                updateUserTimezone();
+                setInterval(updateUserTimezone, 1000);
+
                 searchInput.value = 'Punxsutawney';
                 fetchWeather('Punxsutawney', true);
                 animateParticles();
